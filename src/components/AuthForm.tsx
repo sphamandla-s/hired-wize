@@ -12,16 +12,21 @@ import Link from "next/link"
 import { toast } from "sonner"
 import FormField from "./shared/FormField"
 import { useRouter } from "next/navigation"
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
+import { auth } from "@/firebase/client"
+import { signIn, signUp } from "@/lib/actions/auth.action"
+import { Loader } from 'lucide-react';
+
 
 const authFormSchema = (type: FormType) => {
     return z.object({
-      name: type === "sign-up" ? z.string().min(3) : z.string().optional(),
-      email: z.string().email(),
-      password: z.string().min(3),
-      confirmPassword: type === "sign-up" ? z.string().min(3) : z.string().optional(),
+        name: type === "sign-up" ? z.string().min(3) : z.string().optional(),
+        email: z.string().email(),
+        password: z.string().min(3),
+        confirmPassword: type === "sign-up" ? z.string().min(3) : z.string().optional(),
 
     });
-  };
+};
 
 function AuthForm({ type }: { type: FormType }) {
     const router = useRouter();
@@ -40,30 +45,63 @@ function AuthForm({ type }: { type: FormType }) {
     })
 
     // 2. Define a submit handler.
-    function onSubmit(values: z.infer<typeof formSchema>) {
-       try {
-        if (type === "sign-up") {
-            // Call your sign-up API here
-            console.log("Sign Up", values)
-            toast.success("Account created successfully! Please sign in.")
-            router.push('/sign-in')
-        } else {
-            // Call your sign-in API here
-            console.log("Sign In", values)
-            toast.success("Signed in successfully!")
-            router.push('/')
-        }
-        
-        // Reset the form after submission
-        form.reset()
-        
-       } catch (error) {
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+        try {
+            if (type === "sign-up") {
+                // Call your sign-up API here
+                const { name, email, password } = values
+                if (password !== values.confirmPassword) {
+                    toast.error("Passwords do not match")
+                    return;
+                }
+
+
+                const userCredentials = await createUserWithEmailAndPassword(auth, email, password)
+
+                const result = await signUp({ uid: userCredentials.user.uid, name: name!, email, password })
+
+                console.log("Sign Up", values)
+                toast.success("Account created successfully! Please sign in.")
+
+                if (!result?.success) {
+                    toast.error(result.message)
+                    return;
+                }
+                toast.success("Account created successfully! Please sign in.")
+                router.push('/sign-in')
+            } else {
+                const { email, password } = values
+                const userCredentials = await signInWithEmailAndPassword(auth, email, password)
+
+                const idToken = await userCredentials.user.getIdToken();
+
+                if (!idToken) {
+                    console.log("Could not get user token")
+                    toast.error("Sign in failed")
+                    return;
+                }
+
+                const result = await signIn({ email, idToken });
+
+                if (!result?.success) {
+                    toast.error(result.message)
+                    return;
+                }
+
+                toast.success("Signed in successfully!")
+                router.push('/')
+            }
+
+            // Reset the form after submission
+            form.reset()
+
+        } catch (error) {
             console.log(error)
             toast.error(`There was an error: ${error}`)
         }
-        
-       }
-    
+
+    }
+
 
 
     return (
@@ -80,12 +118,20 @@ function AuthForm({ type }: { type: FormType }) {
                         onSubmit={form.handleSubmit(onSubmit)}
                         className="w-full space-y-6 mt-4 form"
                     >
-                        {!isSignIn && 
-                        <FormField control={form.control} name="name" label="Name" placeholder="Enter your name" type="text" />}
+                        {!isSignIn &&
+                            <FormField control={form.control} name="name" label="Name" placeholder="Enter your name" type="text" />}
                         <FormField control={form.control} name="email" label="Email" placeholder="Enter your email" type="email" />
                         <FormField control={form.control} name="password" label="Password" placeholder="Enter your password" type="password" />
                         {!isSignIn && <FormField control={form.control} name="confirmPassword" label="Confirm Password" placeholder="Confirm your password" type="password" />}
-                        <Button className="btn" type="submit">{isSignIn ? 'Sign In' : 'Create an Account'}</Button>
+                        <Button className="btn" type="submit" disabled={form.formState.isSubmitting}>
+                            {form.formState.isSubmitting ? (
+                                <>
+
+                                    <Loader className="mr-2 h-5 w-5 animate-spin" /> Loading...
+                                </>
+                            ) : (
+                                isSignIn ? 'Sign In' : 'Create an Account'
+                            )}</Button>
                     </form>
                 </Form>
                 <p className=" text-center">{isSignIn ? 'No account yet?' : 'Have an account already?'}
