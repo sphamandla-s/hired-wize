@@ -1,11 +1,18 @@
 import InterviewCard from '@/components/InterviewCard'
 import { Button } from '@/components/ui/button'
 import { dummyInterviews } from '@/constants'
+import { getCurrentUser } from '@/lib/actions/auth.action'
+import { getInterviewsByUserId } from '@/lib/actions/interview.actions'
 import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
 
-function page() {
+async function page() {
+
+  const user = await getCurrentUser();
+  const userInterviews = await getInterviewsByUserId(user?.id!);
+  const hasPastInterviews = userInterviews && userInterviews.length > 0;
+
   return (
     <>
       <section className='card-cta'>
@@ -19,26 +26,31 @@ function page() {
             role—faster and smarter.
           </p>
           <Button asChild className='btn-primary max-sm:w-full'>
-            <Link href='/sign-up'>Get Started</Link>
+            <Link href='/interview'>Get Started</Link>
           </Button>
         </div>
         <Image src="/robot.png" alt="robot" width={400} height={400} className='max-sm:hidden' />
       </section>
+
       <section className='flex flex-col gap-6 mt-8'>
         <h2>Your Interviews</h2>
         <div className=' interviews-section'>
-          {/* <p>You haven&apos;t taken any interviews yet.</p> */}
-          {dummyInterviews.map((interview)=>(
-            <InterviewCard {...interview} key={interview.id} />
-          ))}
+          {hasPastInterviews ? (
+            userInterviews.map((interview) => (
+              <InterviewCard {...interview} key={interview.id} />
+            ))
+          ) : (
+            <p>You haven't taken any interviews yet. Start one now!</p>
+          )}
         </div>
       </section>
+
       <section className='flex flex-col gap-6 mt-8'>
         <h2>Take an Interview</h2>
-        <p>There are no interviews available</p>
+        <p>{hasPastInterviews ? "Ready for another interview?" : "No interviews available right now. Check back later!"}</p>
       </section>
     </>
-  )
+  );
 }
 
 
