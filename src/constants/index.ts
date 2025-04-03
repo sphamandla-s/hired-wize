@@ -228,3 +228,11 @@ export const dummyInterviews: Interview[] = [
     createdAt: "2024-03-14T15:30:00Z",
   },
 ];
+
+ // Navigation links data
+ export const navLinks = [
+    { name: 'Dashboard', href: '/dashboard' },
+    { name: 'Interviews', href: '/interviews' },
+    { name: 'Resume', href: '/resume' },
+    { name: 'Jobs', href: '/jobs' }
+];
